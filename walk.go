@@ -161,6 +161,29 @@ func Walk(root string, walkFn WalkFunc) error {
 	return ws.firstError
 }
 
+func CustomWalk(root string, walkFn WalkFunc, walkers int) error {
+	info, err := os.Lstat(root)
+	if err != nil {
+		return walkFn(root, nil, err)
+	}
+
+	ws := &WalkState{
+		walkFn: walkFn,
+		v:      make(chan VisitData, 1024),
+	}
+	defer close(ws.v)
+
+	ws.active.Add(1)
+	ws.v <- VisitData{root, info}
+
+	for i := 0; i < walkers; i++ {
+		go ws.visitChannel()
+	}
+	ws.active.Wait()
+
+	return ws.firstError
+}
+
 //
 // THE REMAINDER IS UNCHANGED FROM THE ORGINAL GO LIBRARY ORIGINAL
 //
